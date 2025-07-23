@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>RPG Petualangan</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body { margin: 0; background: black; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiSnCS9swB61gjL9GJTZ3VycsGOaSdju4",
+      authDomain: "tesgame-9ca58.firebaseapp.com",
+      databaseURL: "https://tesgame-9ca58-default-rtdb.firebaseio.com/",
+      projectId: "tesgame-9ca58",
+      storageBucket: "tesgame-9ca58.firebasestorage.app",
+      messagingSenderId: "431693127715",
+      appId: "1:431693127715:web:8a72086df0608009265196"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let playerStats = {
+      hp: 100, xp: 0, level: 1, items: [], gold: 100,
+      quests: { crystalQuest: false }, status: "Normal"
+    };
+
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 }, debug: false }
+      },
+      scene: [MenuScene, WorldScene, BattleScene, UIScene, SecretAreaScene, InventoryScene, ShopScene]
+    };
+
+    class MenuScene extends Phaser.Scene {
+      constructor() { super('MenuScene'); }
+      preload() {
+        this.load.audio('bgm', 'https://cdn.pixabay.com/download/audio/2023/05/13/audio_a132367cf6.mp3');
+        this.load.audio('itemSound', 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c4b8ebcd66.mp3');
+        this.load.audio('battleSound', 'https://cdn.pixabay.com/download/audio/2022/03/11/audio_aaa3a3bbd3.mp3');
+        this.load.image('menu_bg', 'https://i.imgur.com/Jt0Ll6F.png');
+      }
+      create() {
+        this.add.image(400, 300, 'menu_bg').setScale(0.6);
+        this.sound.add('bgm', { loop: true, volume: 0.5 }).play();
+        this.add.text(250, 350, 'Memuat progres...', { fontSize: '18px', fill: '#fff' });
+
+        db.ref('playerStats').once('value').then(snapshot => {
+          if (snapshot.exists()) playerStats = snapshot.val();
+          this.add.text(300, 400, 'Tekan [SPACE] Untuk Mulai', { fontSize: '20px', fill: '#fff' });
+          this.input.keyboard.once('keydown-SPACE', () => this.scene.start('WorldScene'));
+        });
+      }
+    }
+
+    class InventoryScene extends Phaser.Scene {
+      constructor() { super('InventoryScene'); }
+      create() {
+        this.add.rectangle(0, 0, 800, 600, 0x222222).setOrigin(0);
+        this.add.text(300, 20, '📦 INVENTORY', { fontSize: '26px', fill: '#fff' });
+        playerStats.items.forEach((item, i) => {
+          this.add.text(100, 80 + i * 30, `- ${item}`, { fontSize: '18px', fill: '#fff' });
+        });
+        this.add.text(100, 400, `Gold: ${playerStats.gold}`, { fontSize: '18px', fill: '#fff' });
+        this.add.text(100, 450, 'Tekan [ESC] untuk kembali', { fontSize: '16px', fill: '#fff' });
+        this.input.keyboard.once('keydown-ESC', () => this.scene.start('WorldScene'));
+      }
+    }
+
+    class ShopScene extends Phaser.Scene {
+      constructor() { super('ShopScene'); }
+      create() {
+        this.add.rectangle(0, 0, 800, 600, 0x333333).setOrigin(0);
+        this.add.text(300, 20, '🏪 TOKO ITEM', { fontSize: '26px', fill: '#fff' });
+        this.add.text(100, 80, 'Potion - 50G [Tekan 1]', { fontSize: '18px', fill: '#fff' });
+        this.input.keyboard.once('keydown-ONE', () => {
+          if (playerStats.gold >= 50) {
+            playerStats.gold -= 50;
+            playerStats.items.push("Potion");
+            db.ref('playerStats').set(playerStats);
+            this.scene.restart();
+          }
+        });
+        this.add.text(100, 450, 'Tekan [ESC] untuk kembali', { fontSize: '16px', fill: '#fff' });
+        this.input.keyboard.once('keydown-ESC', () => this.scene.start('WorldScene'));
+      }
+    }
+
+    class BattleScene extends Phaser.Scene {
+      constructor() { super('BattleScene'); }
+      create() {
+        const isBoss = Math.random() > 0.7;
+        const damage = isBoss ? 30 : 10;
+        this.add.rectangle(0, 0, 800, 600, isBoss ? 0x550000 : 0x000000).setOrigin(0);
+        this.add.text(250, 200, isBoss ? 'Pertarungan Boss!' : 'Pertarungan Dimulai!', { fontSize: '24px', fill: '#fff' });
+        playerStats.hp -= damage;
+        playerStats.xp += 20;
+        if (playerStats.xp >= 100) {
+          playerStats.level += 1;
+          playerStats.xp = 0;
+          playerStats.hp = 100;
+          playerStats.status = "Normal";
+        }
+        if (isBoss) playerStats.status = "Terbakar";
+        db.ref('playerStats').set(playerStats);
+        this.add.text(250, 280, `XP +20 | HP -${damage}`, { fontSize: '20px', fill: '#fff' });
+        this.add.text(250, 320, 'Tekan [SPACE] untuk kembali', { fontSize: '18px', fill: '#fff' });
+        this.input.keyboard.once('keydown-SPACE', () => this.scene.start('WorldScene'));
+      }
+    }
+
+    class UIScene extends Phaser.Scene {
+      constructor() { super({ key: 'UIScene', active: true }); }
+      create() {
+        this.text = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff' });
+        this.input.keyboard.on('keydown-I', () => this.scene.launch('InventoryScene'));
+        this.input.keyboard.on('keydown-Q', () => alert(JSON.stringify(playerStats.quests, null, 2)));
+        this.input.keyboard.on('keydown-S', () => this.scene.launch('ShopScene'));
+      }
+      update() {
+        this.text.setText(`HP: ${playerStats.hp} | XP: ${playerStats.xp} | Lv: ${playerStats.level} | Gold: ${playerStats.gold} | Status: ${playerStats.status}`);
+      }
+    }
+
+    class WorldScene extends Phaser.Scene {
+      constructor() { super('WorldScene'); }
+      preload() {
+        this.load.image('tiles', 'https://labs.phaser.io/assets/tilemaps/tiles/dungeon.png');
+        this.load.tilemapTiledJSON('map', 'https://labs.phaser.io/assets/tilemaps/maps/dungeon-02.json');
+        this.load.spritesheet('player', 'https://labs.phaser.io/assets/sprites/knight.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.image('enemy', 'https://i.imgur.com/IaUrttj.png');
+        this.load.image('npc', 'https://i.imgur.com/u5cRz7u.png');
+        this.load.image('npc2', 'https://i.imgur.com/fZsXJuP.png');
+        this.load.image('item', 'https://i.imgur.com/U7bD4hJ.png');
+        this.load.image('portal', 'https://i.imgur.com/Wl2Uzf6.png');
+      }
+      create() {
+        const map = this.make.tilemap({ key: 'map' });
+        const tileset = map.addTilesetImage('dungeon', 'tiles');
+        map.createLayer('Ground', tileset, 0, 0);
+        const worldLayer = map.createLayer('Walls', tileset, 0, 0);
+        worldLayer.setCollisionByProperty({ collides: true });
+
+        this.player = this.physics.add.sprite(100, 100, 'player', 0).setScale(1.2);
+        this.enemy = this.physics.add.sprite(300, 100, 'enemy').setScale(0.8);
+        this.npc = this.physics.add.sprite(200, 250, 'npc').setScale(0.8);
+        this.npc2 = this.physics.add.sprite(400, 400, 'npc2').setScale(0.8);
+        this.item = this.physics.add.sprite(350, 250, 'item').setScale(0.5);
+        this.portal = this.physics.add.sprite(600, 100, 'portal').setScale(0.6);
+
+        this.anims.create({
+          key: 'walk',
+          frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+          frameRate: 8,
+          repeat: -1
+        });
+
+        this.physics.add.collider(this.player, worldLayer);
+        this.physics.add.overlap(this.player, this.enemy, () => {
+          this.sound.play('battleSound');
+          this.scene.start('BattleScene');
+        });
+
+        this.physics.add.overlap(this.player, this.npc2, () => {
+          if (playerStats.items.includes("Kristal")) {
+            playerStats.quests.crystalQuest = true;
+            db.ref('playerStats').set(playerStats);
+            this.showMessage("Terima kasih! Quest selesai.");
+          } else {
+            this.showMessage("Tolong carikan saya Kristal!");
+          }
+        });
+
+        this.physics.add.overlap(this.player, this.item, () => {
+          if (!playerStats.items.includes("Kristal")) {
+            playerStats.items.push("Kristal");
+            db.ref('playerStats').set(playerStats);
+            this.sound.play('itemSound');
+            this.showMessage("Item Kristal berhasil diambil!");
+            this.item.destroy();
+          }
+        });
+
+        this.physics.add.overlap(this.player, this.portal, () => {
+          if (playerStats.level >= 5) {
+            this.scene.start('SecretAreaScene');
+          } else {
+            this.showMessage("Level 5 dibutuhkan!");
+          }
+        });
+
+        this.cameras.main.startFollow(this.player);
+        this.cursors = this.input.keyboard.createCursorKeys();
+      }
+      update() {
+        const speed = 150;
+        this.player.setVelocity(0);
+        if (this.cursors.left.isDown) this.player.setVelocityX(-speed);
+        else if (this.cursors.right.isDown) this.player.setVelocityX(speed);
+        else if (this.cursors.up.isDown) this.player.setVelocityY(-speed);
+        else if (this.cursors.down.isDown) this.player.setVelocityY(speed);
+        if (this.player.body.velocity.length() > 0) this.player.anims.play('walk', true);
+        else this.player.anims.stop();
+      }
+      showMessage(msg) {
+        if (!this.msgText) this.msgText = this.add.text(50, 500, msg, { fontSize: '16px', fill: '#fff', backgroundColor: '#000' });
+        else this.msgText.setText(msg);
+        this.time.delayedCall(3000, () => this.msgText.setText(''));
+      }
+    }
+
+    class SecretAreaScene extends Phaser.Scene {
+      constructor() { super('SecretAreaScene'); }
+      preload() {
+        this.load.image('secret', 'https://i.imgur.com/l4RZ6Ky.jpg');
+      }
+      create() {
+        this.add.image(400, 300, 'secret').setScale(0.8);
+        this.add.text(200, 100, 'Selamat datang di Area Rahasia!', { fontSize: '24px', fill: '#fff' });
+        this.add.text(200, 500, 'Tekan [SPACE] untuk keluar', { fontSize: '18px', fill: '#fff' });
+        this.input.keyboard.once('keydown-SPACE', () => this.scene.start('WorldScene'));
+      }
+    }
+
+    const game = new Phaser.Game(config);
+  </script>
+</body>
+</html>
