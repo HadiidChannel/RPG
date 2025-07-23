@@ -30,23 +30,12 @@
       quests: { crystalQuest: false }, status: "Normal"
     };
 
-    const config = {
-      type: Phaser.AUTO,
-      width: 800,
-      height: 600,
-      physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 0 }, debug: false }
-      },
-      scene: [MenuScene, WorldScene, BattleScene, UIScene, SecretAreaScene, InventoryScene, ShopScene]
-    };
-
     class MenuScene extends Phaser.Scene {
       constructor() { super('MenuScene'); }
       preload() {
-        this.load.audio('bgm', 'https://cdn.pixabay.com/download/audio/2023/05/13/audio_a132367cf6.mp3');
-        this.load.audio('itemSound', 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c4b8ebcd66.mp3');
-        this.load.audio('battleSound', 'https://cdn.pixabay.com/download/audio/2022/03/11/audio_aaa3a3bbd3.mp3');
+        this.load.audio('bgm', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+        this.load.audio('itemSound', 'https://opengameart.org/sites/default/files/jump_11.mp3');
+        this.load.audio('battleSound', 'https://opengameart.org/sites/default/files/explosion_0.mp3');
         this.load.image('menu_bg', 'https://i.imgur.com/Jt0Ll6F.png');
       }
       create() {
@@ -230,6 +219,17 @@
         this.input.keyboard.once('keydown-SPACE', () => this.scene.start('WorldScene'));
       }
     }
+
+const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 }, debug: false }
+      },
+      scene: [MenuScene, WorldScene, BattleScene, UIScene, SecretAreaScene, InventoryScene, ShopScene]
+    };
 
     const game = new Phaser.Game(config);
   </script>
